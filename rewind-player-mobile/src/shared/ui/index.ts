@@ -1,0 +1,11 @@
+// src/shared/ui/index.ts
+export { Button } from './Button'
+export { Card } from './Card'
+export { Icon } from './Icon'
+export type { IconName } from './Icon'
+export { Input } from './Input'
+export { Screen } from './Screen'
+export { Section } from './Section'
+export { Skeleton } from './Skeleton'
+export { StateView } from './StateView'
+export * from './theme'
