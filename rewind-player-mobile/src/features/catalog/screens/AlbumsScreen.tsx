@@ -47,7 +47,7 @@ export function AlbumsScreen() {
             subtitle={item.artist.name}
             width={160}
             onPress={() =>
-              navigation.navigate('Browse', {
+              navigation.navigate('Home', {
                 screen: 'AlbumDetail',
                 params: { albumId: item.id },
               })

@@ -7,6 +7,7 @@ import type { NormalizeOptions } from '../core/domain/normalize'
 import type { Track } from '../core/domain/entities'
 import { createMockApiClient } from '../adapters/mockApiClient'
 import { createExpoAudioEngine } from '../adapters/expoAudioEngine'
+import { createDeviceMusicSource } from '../adapters/deviceMusic'
 import { MOCK_SEED } from '../adapters/mockSeed'
 import { installPlaybackDeps } from '../features/playback/playbackStore'
 
@@ -29,7 +30,13 @@ export function createServices(config: AppConfig): Services {
   }
   const favorites = createFavorites({ api, normalizeOpts })
 
-  const services: Services = { config, api, normalizeOpts, favorites }
+  const services: Services = {
+    config,
+    api,
+    normalizeOpts,
+    favorites,
+    deviceMusic: createDeviceMusicSource(),
+  }
 
   installPlaybackDeps({
     engine: createExpoAudioEngine(),
@@ -48,6 +55,15 @@ export function createServices(config: AppConfig): Services {
  * purchase prompt (§6.1).
  */
 async function resolvePlaybackUrl(services: Services, track: Track): Promise<string> {
+  // Device-local tracks carry their URI from enumeration time — no signed
+  // URL, no stake check. Null URI ⇒ DRM-protected (iOS).
+  if (track.id.startsWith('local:')) {
+    if (!track.url) {
+      throw new Error('This track is DRM-protected and cannot be played')
+    }
+    return track.url
+  }
+
   const { url } = await services.api.get<{ url: string }>(
     '/playback/signed-url',
     { track_id: track.id },

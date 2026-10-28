@@ -2,15 +2,16 @@
 import { useMemo } from 'react'
 import { Image } from 'expo-image'
 import { FlatList, Text, View } from 'react-native'
-import { useRoute, type RouteProp } from '@react-navigation/native'
-import type { BrowseStackParamList } from '../../../shared/navigationTypes'
+import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native'
+import type { CatalogDetailScreens } from '../../../shared/navigationTypes'
 import { Card, Screen, Skeleton, StateView, colors, spacing, typography } from '../../../shared/ui'
 import { useCatalog } from '../hooks/useCatalog'
 import { PlayableTrackRow } from '../../playback/PlayableTrackRow'
 
-type ArtistDetailRoute = RouteProp<BrowseStackParamList, 'ArtistDetail'>
+type ArtistDetailRoute = RouteProp<CatalogDetailScreens, 'ArtistDetail'>
 
 export function ArtistDetailScreen() {
+  const navigation = useNavigation()
   const route = useRoute<ArtistDetailRoute>()
   const { artistId } = route.params
   const catalog = useCatalog()
@@ -73,7 +74,14 @@ export function ArtistDetailScreen() {
                   showsHorizontalScrollIndicator={false}
                   contentContainerStyle={{ paddingHorizontal: spacing.md, gap: spacing.md }}
                   renderItem={({ item }) => (
-                    <Card source={item.cover} title={item.title} subtitle={item.release_date ?? undefined} />
+                    <Card
+                      source={item.cover}
+                      title={item.title}
+                      subtitle={item.release_date ?? undefined}
+                      onPress={() =>
+                        navigation.navigate('AlbumDetail', { albumId: item.id })
+                      }
+                    />
                   )}
                 />
               </View>

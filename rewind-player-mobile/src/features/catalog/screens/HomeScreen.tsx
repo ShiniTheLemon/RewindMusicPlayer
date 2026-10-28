@@ -1,37 +1,42 @@
 // src/features/catalog/screens/HomeScreen.tsx
 import { useMemo } from 'react'
-import { Pressable, ScrollView, Text, View } from 'react-native'
+import { ScrollView, Text, View } from 'react-native'
 import { useNavigation } from '@react-navigation/native'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import {
   selectFeaturedArtists,
-  selectNewestAlbums,
   selectNewestTracks,
 } from '../../../core/application/catalog'
-import { Card, Icon, Screen, Section, Skeleton, StateView, colors, radii, spacing, typography } from '../../../shared/ui'
-import { useCatalog } from '../../catalog/hooks/useCatalog'
+import { Card, Icon, Screen, Section, Skeleton, StateView, colors, spacing, typography } from '../../../shared/ui'
+import { useServices } from '../../../shared/ServicesContext'
+import { useCatalog } from '../hooks/useCatalog'
 import { usePlaylists } from '../hooks/usePlaylists'
 import { usePlayTrack } from '../../playback/usePlayback'
+import { PlayableTrackRow } from '../../playback/PlayableTrackRow'
+
+const CHART_SIZE = 10
 
 export function HomeScreen() {
   const navigation = useNavigation()
+  const insets = useSafeAreaInsets()
+  const services = useServices()
   const catalog = useCatalog()
   const playlists = usePlaylists()
-  const { play } = usePlayTrack()
+  const { playAll } = usePlayTrack()
 
+  const chartTracks = useMemo(
+    () => (catalog.data ? selectNewestTracks(catalog.data.tracks, CHART_SIZE) : []),
+    [catalog.data],
+  )
   const featured = useMemo(
-    () => (catalog.data ? selectFeaturedArtists(catalog.data.artists, 3) : []),
-    [catalog.data],
-  )
-  const newestTracks = useMemo(
-    () => (catalog.data ? selectNewestTracks(catalog.data.tracks, 5) : []),
-    [catalog.data],
-  )
-  const newestAlbums = useMemo(
-    () => (catalog.data ? selectNewestAlbums(catalog.data.albums, 4) : []),
+    () => (catalog.data ? selectFeaturedArtists(catalog.data.artists, 6) : []),
     [catalog.data],
   )
 
-  if (catalog.isLoading) return <HomeSkeleton />
+  const openPlaylist = (playlistId: string) =>
+    navigation.navigate('Library', { screen: 'PlaylistDetail', params: { playlistId } })
+
+  if (catalog.isLoading) return <HomeSkeleton topInset={insets.top} />
   if (catalog.error) {
     return (
       <Screen>
@@ -46,34 +51,61 @@ export function HomeScreen() {
     )
   }
 
-  const openPlaylist = (playlistId: string) =>
-    navigation.navigate('Library', { screen: 'PlaylistDetail', params: { playlistId } })
-
   return (
     <Screen>
-      <ScrollView contentContainerStyle={{ paddingVertical: spacing.md }}>
-        <Pressable
-          onPress={() => navigation.navigate('Search')}
-          style={({ pressed }) => ({
-            marginHorizontal: spacing.md,
-            marginBottom: spacing.lg,
-            padding: spacing.md,
-            borderRadius: radii.md,
-            backgroundColor: colors.surface,
-            borderWidth: 1,
-            borderColor: colors.border,
+      <ScrollView
+        contentContainerStyle={{
+          paddingTop: insets.top + spacing.sm,
+          paddingBottom: spacing.xl,
+        }}
+      >
+        {/* Header: app title + settings */}
+        <View
+          style={{
             flexDirection: 'row',
             alignItems: 'center',
-            gap: spacing.sm,
-            opacity: pressed ? 0.85 : 1,
-          })}
+            justifyContent: 'space-between',
+            paddingHorizontal: spacing.md,
+            marginBottom: spacing.md,
+          }}
         >
-          <Icon name="search" size={18} color={colors.textSecondary} />
-          <Text style={typography.bodySmall}>Search tracks, albums, artists</Text>
-        </Pressable>
+          <Text style={[typography.h1, { fontWeight: '800' as const }]}>Rewind</Text>
+          <Icon name="settings-outline" size={24} color={colors.textSecondary} />
+        </View>
+
+        <Section title="Suggested for you">
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={{ paddingHorizontal: spacing.md, gap: spacing.md }}
+          >
+            {(playlists.data ?? []).map((playlist) => (
+              <Card
+                key={playlist.id}
+                source={services.normalizeOpts.staticCover}
+                title={playlist.name}
+                subtitle={`${playlist.track_count} ${playlist.track_count === 1 ? 'track' : 'tracks'}`}
+                onPress={() => openPlaylist(playlist.id)}
+              />
+            ))}
+          </ScrollView>
+        </Section>
+
+        <Section
+          title="Top charts"
+          action={{ label: 'Play all', onPress: () => playAll(chartTracks) }}
+        >
+          {chartTracks.map((track, index) => (
+            <PlayableTrackRow key={track.id} track={track} rank={index + 1} />
+          ))}
+        </Section>
 
         <Section title="Featured artists">
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: spacing.md, gap: spacing.md }}>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={{ paddingHorizontal: spacing.md, gap: spacing.md }}
+          >
             {featured.map((artist) => (
               <Card
                 key={artist.id}
@@ -81,90 +113,24 @@ export function HomeScreen() {
                 title={artist.name}
                 circular
                 onPress={() =>
-                  navigation.navigate('Browse', {
-                    screen: 'ArtistDetail',
-                    params: { artistId: artist.id },
-                  })
+                  navigation.navigate('ArtistDetail', { artistId: artist.id })
                 }
               />
             ))}
           </ScrollView>
-        </Section>
-
-        <Section title="New tracks">
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: spacing.md, gap: spacing.md }}>
-            {newestTracks.map((track) => (
-              <Card
-                key={track.id}
-                source={track.cover}
-                title={track.title}
-                subtitle={track.artist.name}
-                onPress={() => play(track)}
-              />
-            ))}
-          </ScrollView>
-        </Section>
-
-        <Section title="New albums">
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: spacing.md, gap: spacing.md }}>
-            {newestAlbums.map((album) => (
-              <Card
-                key={album.id}
-                source={album.cover}
-                title={album.title}
-                subtitle={album.artist.name}
-                onPress={() =>
-                  navigation.navigate('Browse', {
-                    screen: 'AlbumDetail',
-                    params: { albumId: album.id },
-                  })
-                }
-              />
-            ))}
-          </ScrollView>
-        </Section>
-
-        <Section
-          title="Your playlists"
-          action={{ label: 'See all', onPress: () => navigation.navigate('Library') }}
-        >
-          <View>
-            {(playlists.data ?? []).map((playlist) => (
-              <Pressable
-                key={playlist.id}
-                onPress={() => openPlaylist(playlist.id)}
-                style={({ pressed }) => ({
-                  paddingHorizontal: spacing.md,
-                  paddingVertical: spacing.sm,
-                  opacity: pressed ? 0.7 : 1,
-                })}
-              >
-                <Text numberOfLines={1} style={typography.body}>
-                  {playlist.name}
-                </Text>
-                <Text style={typography.bodySmall}>
-                  {playlist.track_count} {playlist.track_count === 1 ? 'track' : 'tracks'}
-                </Text>
-              </Pressable>
-            ))}
-            {playlists.data && playlists.data.length === 0 ? (
-              <Text style={[typography.bodySmall, { paddingHorizontal: spacing.md }]}>No playlists yet</Text>
-            ) : null}
-          </View>
         </Section>
       </ScrollView>
     </Screen>
   )
 }
 
-function HomeSkeleton() {
+function HomeSkeleton({ topInset }: { topInset: number }) {
   return (
     <Screen>
-      <View style={{ padding: spacing.md, gap: spacing.md }}>
-        <Skeleton width="100%" height={44} />
+      <View style={{ paddingTop: topInset + spacing.sm, paddingHorizontal: spacing.md, gap: spacing.md }}>
+        <Skeleton width={160} height={28} />
         <Skeleton width="100%" height={140} />
-        <Skeleton width="100%" height={140} />
-        <Skeleton width="100%" height={140} />
+        <Skeleton width="100%" height={220} />
       </View>
     </Screen>
   )

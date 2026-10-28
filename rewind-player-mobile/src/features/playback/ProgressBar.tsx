@@ -10,6 +10,8 @@ export interface ProgressBarProps {
   height?: number
   /** When false, tapping does nothing (mini player uses this before expand). */
   interactive?: boolean
+  /** Track (background) color. */
+  trackColor?: string
 }
 
 export function ProgressBar({
@@ -18,6 +20,7 @@ export function ProgressBar({
   onSeek,
   height = 4,
   interactive = true,
+  trackColor = '#e0e0e0',
 }: ProgressBarProps) {
   const [trackWidth, setTrackWidth] = useState(0)
   const safeMax = durationMs > 0 ? durationMs : 1
@@ -36,7 +39,7 @@ export function ProgressBar({
       hitSlop={{ top: 8, bottom: 8 }}
       style={{
         height,
-        backgroundColor: '#e0e0e0',
+        backgroundColor: trackColor,
         borderRadius: height / 2,
         overflow: 'hidden',
       }}

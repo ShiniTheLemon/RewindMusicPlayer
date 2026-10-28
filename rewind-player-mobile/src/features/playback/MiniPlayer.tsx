@@ -18,9 +18,9 @@ export function MiniPlayer() {
   return (
     <View
       style={{
-        backgroundColor: colors.surface,
+        backgroundColor: colors.bgPanel,
         borderTopWidth: 1,
-        borderTopColor: colors.border,
+        borderTopColor: '#2c2c2c',
       }}
     >
       <Pressable
@@ -45,10 +45,10 @@ export function MiniPlayer() {
           contentFit="cover"
         />
         <View style={{ flex: 1 }}>
-          <Text numberOfLines={1} style={typography.body}>
+          <Text numberOfLines={1} style={[typography.body, { color: colors.textOnDark }]}>
             {track.title}
           </Text>
-          <Text numberOfLines={1} style={typography.bodySmall}>
+          <Text numberOfLines={1} style={[typography.bodySmall, { color: colors.textOnDarkSecondary }]}>
             {track.artist.name}
           </Text>
         </View>
@@ -60,7 +60,7 @@ export function MiniPlayer() {
           <Icon
             name={isPlaying ? 'pause' : 'play'}
             size={26}
-            color={colors.textPrimary}
+            color={colors.textOnDark}
           />
         </Pressable>
         <Pressable
@@ -68,7 +68,7 @@ export function MiniPlayer() {
           hitSlop={10}
           style={({ pressed }) => ({ opacity: pressed ? 0.6 : 1, padding: 6 })}
         >
-          <Icon name="play-skip-forward" size={22} color={colors.textPrimary} />
+          <Icon name="play-skip-forward" size={22} color={colors.textOnDark} />
         </Pressable>
       </Pressable>
       <ProgressBar
@@ -76,6 +76,7 @@ export function MiniPlayer() {
         durationMs={track.duration}
         height={2}
         interactive={false}
+        trackColor="#3a3a3a"
       />
     </View>
   )

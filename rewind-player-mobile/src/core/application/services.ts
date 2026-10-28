@@ -2,6 +2,7 @@
 import type { ApiClient } from '../ports/apiClient'
 import type { NormalizeOptions } from '../domain/normalize'
 import type { AppConfig } from '../domain/config'
+import type { DeviceMusicSource } from '../ports/deviceMusic'
 import type { FavoritesUseCases } from './favorites'
 
 /**
@@ -14,4 +15,5 @@ export interface Services {
     api: ApiClient
     normalizeOpts: NormalizeOptions
     favorites: FavoritesUseCases
+    deviceMusic: DeviceMusicSource
 }

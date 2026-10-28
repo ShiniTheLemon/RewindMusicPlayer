@@ -3,13 +3,13 @@ import { useMemo } from 'react'
 import { Image } from 'expo-image'
 import { FlatList, Pressable, Text, View } from 'react-native'
 import { useRoute, type RouteProp } from '@react-navigation/native'
-import type { BrowseStackParamList } from '../../../shared/navigationTypes'
+import type { CatalogDetailScreens } from '../../../shared/navigationTypes'
 import { Icon, Screen, Skeleton, StateView, colors, radii, spacing, typography } from '../../../shared/ui'
 import { useCatalog } from '../hooks/useCatalog'
 import { PlayableTrackRow } from '../../playback/PlayableTrackRow'
 import { usePlayTrack } from '../../playback/usePlayback'
 
-type AlbumDetailRoute = RouteProp<BrowseStackParamList, 'AlbumDetail'>
+type AlbumDetailRoute = RouteProp<CatalogDetailScreens, 'AlbumDetail'>
 
 export function AlbumDetailScreen() {
   const route = useRoute<AlbumDetailRoute>()

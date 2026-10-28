@@ -47,7 +47,7 @@ export function ArtistsScreen() {
             width={140}
             circular
             onPress={() =>
-              navigation.navigate('Browse', {
+              navigation.navigate('Home', {
                 screen: 'ArtistDetail',
                 params: { artistId: item.id },
               })

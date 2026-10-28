@@ -7,7 +7,7 @@ const appConfig: ExpoConfig = {
 
     android: { package: 'com.rewindplayer.app', adaptiveIcon: { foregroundImage: './assets/icon.png', backgroundColor: '#f8f8f8', }, permissions: ['android.permission.FOREGROUND_SERVICE', 'android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK',], },
 
-    plugins: ['expo-dev-client', 'expo-font', 'expo-audio', 'expo-asset', ['expo-build-properties', { android: { compileSdkVersion: 37, targetSdkVersion: 36, }, ios: { deploymentTarget: '16.4', }, },],],
+    plugins: ['expo-dev-client', 'expo-font', 'expo-audio', 'expo-asset', './modules/rewind-device-music/app.plugin.js', ['expo-build-properties', { android: { compileSdkVersion: 37, targetSdkVersion: 36, }, ios: { deploymentTarget: '16.4', }, },],],
 
     extra: { eas: { "projectId": "373871ef-b4f7-46ec-b947-87ede6228094" }, },
 };
