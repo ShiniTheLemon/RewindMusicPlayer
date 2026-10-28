@@ -5,14 +5,7 @@
   },
   "build": {
     "base": {
-      "node": "24.19.0",
-      "env": {
-        "EXPO_PUBLIC_API_BASE_URL": "https://your-tunnel.example.com/api/v1",
-        "EXPO_PUBLIC_KEYCLOAK_URL": "https://your-tunnel.example.com",
-        "EXPO_PUBLIC_KEYCLOAK_REALM": "your-realm",
-        "EXPO_PUBLIC_KEYCLOAK_CLIENT_ID": "your-keycloak-client",
-        "EXPO_PUBLIC_MARKETPLACE_URL": "https://your-marketplace.example.com"
-      }
+      "node": "24.19.0"
     },
     "development": {
       "extends": "base",

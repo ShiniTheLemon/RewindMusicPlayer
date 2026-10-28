@@ -1,11 +1,14 @@
 // src/features/catalog/screens/LibraryScreen.tsx
 import { useState, type ReactNode } from 'react'
 import { Image } from 'expo-image'
-import { Pressable, ScrollView, Text, View } from 'react-native'
+import { Modal, Pressable, ScrollView, Text, View } from 'react-native'
 import { useNavigation } from '@react-navigation/native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
-import { Button, Card, Screen, Section, Skeleton, colors, spacing, typography } from '../../../shared/ui'
+import { Button, Card, Icon, Input, Screen, Section, Skeleton, colors, radii, spacing, typography } from '../../../shared/ui'
 import { useServices } from '../../../shared/ServicesContext'
+import { displayName } from '../../../core/application/bootstrap'
+import { useAuth } from '../../auth/useAuth'
+import { useCatalog } from '../hooks/useCatalog'
 import { usePlaylists } from '../hooks/usePlaylists'
 import { useStakes } from '../hooks/useStakes'
 import { useDeviceTracks } from '../hooks/useDeviceTracks'
@@ -54,11 +57,55 @@ export function LibraryScreen() {
   const navigation = useNavigation()
   const insets = useSafeAreaInsets()
   const services = useServices()
+  const { user } = useAuth()
+  const catalog = useCatalog()
   const playlists = usePlaylists()
   const stakes = useStakes()
   const device = useDeviceTracks()
   const history = usePlaybackStore((s) => s.history)
   const [segment, setSegment] = useState<Segment>('recent')
+  const [showCreate, setShowCreate] = useState(false)
+  const [newName, setNewName] = useState('')
+  const [createError, setCreateError] = useState<string | null>(null)
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+
+  const openCreateModal = () => {
+    setNewName('')
+    setCreateError(null)
+    setSelectedIds(new Set())
+    setShowCreate(true)
+  }
+
+  const toggleTrack = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  const submitCreate = async () => {
+    const name = newName.trim()
+    if (!name || selectedIds.size === 0 || playlists.creating) return
+    const tracks = (catalog.data?.tracks ?? []).filter((t) =>
+      selectedIds.has(t.id),
+    )
+    try {
+      const result = await playlists.create(name, tracks)
+      console.log(
+        '[playlists] created',
+        result.playlist.id,
+        '— failed track ids:',
+        result.failedTrackIds,
+      )
+      setShowCreate(false)
+      setNewName('')
+      navigation.navigate('PlaylistDetail', { playlistId: result.playlist.id })
+    } catch (err) {
+      setCreateError(err instanceof Error ? err.message : 'Could not create the playlist')
+    }
+  }
 
   const ownedTotal =
     (stakes.data?.ownedTracks.length ?? 0) + (stakes.data?.ownedAlbums.length ?? 0)
@@ -82,7 +129,10 @@ export function LibraryScreen() {
           }}
         >
           <Image
-            source={services.normalizeOpts.staticCover}
+            source={
+              services.normalizeOpts.staticAvatar ??
+              services.normalizeOpts.staticCover
+            }
             style={{
               width: 64,
               height: 64,
@@ -92,7 +142,7 @@ export function LibraryScreen() {
             contentFit="cover"
           />
           <View style={{ flex: 1 }}>
-            <Text style={typography.h2}>Rewind User</Text>
+            <Text style={typography.h2}>{displayName(user)}</Text>
             <Text style={[typography.bodySmall, { marginTop: 2 }]}>
               {playlists.data?.length ?? 0} playlists · {ownedTotal} owned ·{' '}
               {device.granted ? device.tracks.length : 0} local
@@ -244,7 +294,10 @@ export function LibraryScreen() {
         ) : null}
 
         {segment === 'playlists' ? (
-          <Section title="Playlists">
+          <Section
+            title="Playlists"
+            action={{ label: '+ New', onPress: openCreateModal }}
+          >
             {playlists.isLoading ? (
               <View style={{ paddingHorizontal: spacing.md, gap: spacing.sm }}>
                 <Skeleton width="100%" height={44} />
@@ -280,6 +333,103 @@ export function LibraryScreen() {
           </Section>
         ) : null}
       </ScrollView>
+
+      <Modal
+        visible={showCreate}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowCreate(false)}
+        statusBarTranslucent
+      >
+        <Pressable
+          onPress={() => setShowCreate(false)}
+          style={{
+            flex: 1,
+            backgroundColor: 'rgba(0,0,0,0.5)',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: spacing.lg,
+          }}
+        >
+          <Pressable
+            onPress={(e) => e.stopPropagation()}
+            style={{
+              width: '100%',
+              maxWidth: 380,
+              backgroundColor: colors.surface,
+              borderRadius: radii.lg,
+              padding: spacing.lg,
+              gap: spacing.md,
+            }}
+          >
+            <Text style={typography.h3}>New playlist</Text>
+            <Input
+              placeholder="Playlist name"
+              value={newName}
+              onChangeText={setNewName}
+              autoFocus
+              returnKeyType="done"
+            />
+            <Text style={typography.bodySmall}>
+              Pick at least one track ({selectedIds.size} selected)
+            </Text>
+            <ScrollView style={{ maxHeight: 240 }} nestedScrollEnabled>
+              {catalog.data
+                ? catalog.data.tracks.map((t) => {
+                    const selected = selectedIds.has(t.id)
+                    return (
+                      <Pressable
+                        key={t.id}
+                        onPress={() => toggleTrack(t.id)}
+                        style={{
+                          flexDirection: 'row',
+                          alignItems: 'center',
+                          gap: spacing.sm,
+                          paddingVertical: spacing.xs,
+                        }}
+                      >
+                        <Icon
+                          name={selected ? 'checkmark-circle' : 'ellipse-outline'}
+                          size={20}
+                          color={selected ? colors.primary : colors.textSecondary}
+                        />
+                        <Text numberOfLines={1} style={[typography.body, { flex: 1 }]}>
+                          {t.title}
+                        </Text>
+                        <Text numberOfLines={1} style={typography.bodySmall}>
+                          {t.artist.name}
+                        </Text>
+                      </Pressable>
+                    )
+                  })
+                : null}
+            </ScrollView>
+            {createError ? (
+              <Text style={[typography.bodySmall, { color: colors.primary }]}>
+                {createError}
+              </Text>
+            ) : null}
+            <View
+              style={{
+                flexDirection: 'row',
+                justifyContent: 'flex-end',
+                gap: spacing.sm,
+              }}
+            >
+              <Button
+                title="Cancel"
+                variant="ghost"
+                onPress={() => setShowCreate(false)}
+              />
+              <Button
+                title="Create"
+                disabled={newName.trim() === '' || selectedIds.size === 0 || playlists.creating}
+                onPress={() => void submitCreate()}
+              />
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </Screen>
   )
 }

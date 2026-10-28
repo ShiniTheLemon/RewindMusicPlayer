@@ -19,8 +19,11 @@ export function PlayableTrackRow({
       hideFavorite={hideFavorite}
       rank={rank}
       onPress={() => {
-        // Null URI ⇒ DRM-protected device file — nothing to play.
-        if (track.url) play(track)
+        // Only DRM-protected device files are unplayable. Backend tracks
+        // always attempt playback — the backend enforces stakes (403 →
+        // purchase prompt, §3.8).
+        if (track.id.startsWith('local:') && !track.url) return
+        play(track)
       }}
     />
   )

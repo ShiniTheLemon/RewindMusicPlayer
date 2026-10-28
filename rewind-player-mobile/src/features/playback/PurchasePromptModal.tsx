@@ -72,13 +72,14 @@ export function PurchasePromptModal() {
             here instantly.
           </Text>
 
-          <View style={{ flexDirection: 'row', justifyContent: 'flex-end', gap: spacing.sm }}>
-            <Button title="Not now" variant="ghost" onPress={dismiss} />
+          <View style={{ gap: spacing.sm }}>
             <Button
               title="Open marketplace"
               icon="open-outline"
+              fullWidth
               onPress={openMarketplace}
             />
+            <Button title="Not now" variant="ghost" fullWidth onPress={dismiss} />
           </View>
         </Pressable>
       </Pressable>

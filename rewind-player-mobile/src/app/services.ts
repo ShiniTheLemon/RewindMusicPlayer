@@ -1,18 +1,16 @@
 // src/app/services.ts
-import { Asset } from 'expo-asset'
 import { createFavorites } from '../core/application/favorites'
 import type { Services } from '../core/application/services'
 import type { AppConfig } from '../core/domain/config'
 import type { NormalizeOptions } from '../core/domain/normalize'
 import type { Track } from '../core/domain/entities'
-import { createMockApiClient } from '../adapters/mockApiClient'
+import { createHttpApiClient } from '../adapters/httpApiClient'
 import { createExpoAudioEngine } from '../adapters/expoAudioEngine'
 import { createDeviceMusicSource } from '../adapters/deviceMusic'
 import { createKeycloakAuth, createDisabledAuth } from '../adapters/keycloakAuth'
 import { createMmkvKeyValueStore } from '../adapters/mmkvKeyValue'
 import { createMarketplaceGateway } from '../adapters/marketplaceHttp'
 import type { BootstrapDeps } from '../core/application/bootstrap'
-import { MOCK_SEED } from '../adapters/mockSeed'
 import { installPlaybackDeps } from '../features/playback/playbackStore'
 import { installAuthDeps } from '../features/auth/authStore'
 
@@ -21,24 +19,26 @@ import { installAuthDeps } from '../features/auth/authStore'
 // catch it because require() is untyped.
 const STATIC_COVER = require('../../assets/icon.png') as number
 
-// Bundled 1D test audio. The app plays it for every unlocked track until
-// Phase 3 wires the real backend.
-const LOCAL_TEST_AUDIO_URI =
-  Asset.fromModule(require('../../assets/audio/test-track.mp3') as number).uri
+// Default artist avatar when profile_pic_path is missing.
+const STATIC_AVATAR = require('../../assets/avatar.png') as number
 
 export function createServices(config: AppConfig): Services {
-  // 1C: mock adapter. Phase 3 will swap this single line for HttpApiClient.
-  const api = createMockApiClient(MOCK_SEED)
-  const normalizeOpts: NormalizeOptions = {
-    apiBase: config.apiBaseUrl,
-    staticCover: STATIC_COVER,
-  }
-  const favorites = createFavorites({ api, normalizeOpts })
-
   const keyValue = createMmkvKeyValueStore()
   const auth = config.keycloak
     ? createKeycloakAuth(config.keycloak, keyValue)
     : createDisabledAuth()
+
+  // Phase 3: the real backend. The mock (createMockApiClient) remains for
+  // tests and device-less demos.
+  const api = createHttpApiClient({ baseUrl: config.apiBaseUrl, auth })
+
+  const normalizeOpts: NormalizeOptions = {
+    apiBase: config.apiBaseUrl,
+    staticCover: STATIC_COVER,
+    staticAvatar: STATIC_AVATAR,
+  }
+  const favorites = createFavorites({ api, normalizeOpts })
+
   const bootstrapDeps: BootstrapDeps = {
     auth,
     api,
@@ -70,29 +70,36 @@ export function createServices(config: AppConfig): Services {
 }
 
 /**
- * §3.8 URL resolution. Handles the three cases the backend returns:
- *   - https presigned URL           → play directly (Phase 3+)
- *   - relative /playback/stream/... → authed stream with headers (Phase 3+)
- *   - mock:// sentinel (1D)         → map to a bundled local file
- * 403 from signed-url is thrown as ApiError(403) so the store opens the
+ * §3.8 URL resolution:
+ *   - device-local tracks carry their URI from enumeration time
+ *   - https presigned URL → play directly (tokenless, range-capable)
+ *   - relative /playback/stream/{id} (legacy tracks) → play with the bearer
+ *     as an HTTP header — RN has no blob URLs, and expo-audio forwards
+ *     AudioSource.headers to the request
+ * A 403 from signed-url is thrown as ApiError(403) so the store opens the
  * purchase prompt (§6.1).
  */
-async function resolvePlaybackUrl(services: Services, track: Track): Promise<string> {
-  // Device-local tracks carry their URI from enumeration time — no signed
-  // URL, no stake check. Null URI ⇒ DRM-protected (iOS).
+async function resolvePlaybackUrl(
+  services: Services,
+  track: Track,
+): Promise<{ url: string; headers?: Record<string, string> }> {
   if (track.id.startsWith('local:')) {
     if (!track.url) {
       throw new Error('This track is DRM-protected and cannot be played')
     }
-    return track.url
+    return { url: track.url }
   }
 
   const { url } = await services.api.get<{ url: string }>(
     '/playback/signed-url',
     { track_id: track.id },
   )
-  if (url.startsWith('mock://')) return LOCAL_TEST_AUDIO_URI
-  if (/^https?:\/\//.test(url)) return url
-  // Phase 3: prepend apiBase and pass the bearer as AudioSource.headers.
-  return `${services.config.apiBaseUrl}${url}`
+  console.log('[playback] signed-url answered for', track.id, '→', JSON.stringify(url))
+  if (/^https?:\/\//.test(url)) return { url }
+
+  const token = await services.auth.getToken()
+  return {
+    url: `${services.config.apiBaseUrl}${url}`,
+    headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+  }
 }

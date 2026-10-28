@@ -1,6 +1,8 @@
 // src/features/catalog/screens/HomeScreen.tsx
 import { useMemo } from 'react'
+import { Image } from 'expo-image'
 import { ScrollView, Text, View } from 'react-native'
+import { StatusBar } from 'expo-status-bar'
 import { useNavigation } from '@react-navigation/native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import {
@@ -15,6 +17,9 @@ import { usePlayTrack } from '../../playback/usePlayback'
 import { PlayableTrackRow } from '../../playback/PlayableTrackRow'
 
 const CHART_SIZE = 10
+
+/** Header emblem (square logo crop; shown circular). */
+const LOGO = require('../../../../assets/icon.png') as number
 
 export function HomeScreen() {
   const navigation = useNavigation()
@@ -53,25 +58,38 @@ export function HomeScreen() {
 
   return (
     <Screen>
-      <ScrollView
-        contentContainerStyle={{
+      {/* Black header band, status bar included */}
+      <View
+        style={{
+          backgroundColor: colors.bgDark,
           paddingTop: insets.top + spacing.sm,
-          paddingBottom: spacing.xl,
+          paddingBottom: spacing.sm,
         }}
       >
-        {/* Header: app title + settings */}
+        <StatusBar style="light" />
         <View
           style={{
             flexDirection: 'row',
             alignItems: 'center',
             justifyContent: 'space-between',
             paddingHorizontal: spacing.md,
-            marginBottom: spacing.md,
           }}
         >
-          <Text style={[typography.h1, { fontWeight: '800' as const }]}>Rewind</Text>
-          <Icon name="settings-outline" size={24} color={colors.textSecondary} />
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
+            <Image
+              source={LOGO}
+              style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: colors.skeleton }}
+              contentFit="cover"
+            />
+            <Text style={[typography.h1, { fontWeight: '800' as const, color: colors.primary }]}>
+              Rewind
+            </Text>
+          </View>
+          <Icon name="settings-outline" size={24} color={colors.textOnDark} />
         </View>
+      </View>
+
+      <ScrollView contentContainerStyle={{ paddingTop: spacing.md, paddingBottom: spacing.xl }}>
 
         <Section title="Suggested for you">
           <ScrollView

@@ -42,6 +42,8 @@ export interface NormalizeOptions {
     apiBase: string
     /** Placeholder injected by the host platform (a bundled asset id in RN). */
     staticCover: CoverSource
+    /** Placeholder for artist avatars when profile_pic_path is missing. */
+    staticAvatar?: CoverSource
 }
 
 export interface LookupMaps {
@@ -87,6 +89,13 @@ function resolveCover(
     return assetUrl(path, opts.apiBase) ?? opts.staticCover
 }
 
+function resolveAvatar(
+    path: string | null | undefined,
+    opts: NormalizeOptions,
+): CoverSource {
+    return assetUrl(path, opts.apiBase) ?? opts.staticAvatar ?? opts.staticCover
+}
+
 /* ------------------------------------------------------------------ */
 /* Normalizers — return null for null input (§4)                       */
 /* ------------------------------------------------------------------ */
@@ -102,7 +111,7 @@ export function normalizeArtist(
         name: name.length > 0 ? name : 'Unknown Artist',
         bio: api.bio ?? '',
         keycloakId: api.user_id ?? null,
-        avatar: resolveCover(api.profile_pic_path, opts),
+        avatar: resolveAvatar(api.profile_pic_path, opts),
         follower_count: 0,
     }
 }

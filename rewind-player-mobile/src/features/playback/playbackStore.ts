@@ -13,9 +13,12 @@ import { ApiError } from '../../core/domain/errors'
 
 export interface PlaybackDeps {
   engine: AudioEngine
-  /** Resolves a playable URL for a track. 1C returns a stub URL; 1D/3 hits
-   *  /playback/signed-url and throws ApiError(403) on missing stake. */
-  resolveUrl: (track: Track) => Promise<string>
+  /** Resolves a playable URL for a track. 1C returned a stub URL; the real
+   *  resolver returns presigned URLs, or the legacy stream path with the
+   *  bearer in `headers` (§3.8). */
+  resolveUrl: (
+    track: Track,
+  ) => Promise<{ url: string; headers?: Record<string, string> }>
 }
 
 export interface PlaybackStore extends PlaybackState {
@@ -88,17 +91,26 @@ export const usePlaybackStore = create<PlaybackStore>((set, get) => {
 
   async function handleLoadTrack(track: Track): Promise<void> {
     const { engine, resolveUrl } = requireDeps()
+    console.log('[playback] resolving track:', track.id, `"${track.title}"`)
     try {
-      const url = await resolveUrl(track)
+      const { url, headers } = await resolveUrl(track)
+      console.log('[playback] resolved URL:', url.slice(0, 100), headers ? '(with headers)' : '')
       dispatch({ type: 'TRACK_LOADED', track })
       engine.play(url, track.id, {
         onPlay: () => dispatch({ type: 'TRACK_STARTED' }),
         onEnd: () => dispatch({ type: 'TRACK_ENDED' }),
         onError: () => dispatch({ type: 'TRACK_ERROR' }),
         onSeeked: () => dispatch({ type: 'SEEKED' }),
-      })
+      }, headers)
     } catch (err) {
+      console.log(
+        '[playback] resolve FAILED for',
+        track.id,
+        '→',
+        err instanceof Error ? `${err.name}: ${err.message}` : String(err),
+      )
       if (ApiError.isAccessDenied(err)) {
+        console.log('[playback] 403 ⇒ showing purchase prompt')
         dispatch({ type: 'LOAD_DENIED', track })
       } else {
         dispatch({ type: 'TRACK_ERROR' })
@@ -150,7 +162,10 @@ export const usePlaybackStore = create<PlaybackStore>((set, get) => {
     ...INITIAL_PLAYBACK_STATE,
     playerExpanded: false,
 
-    play: (track) => dispatch({ type: 'PLAY', track }),
+    play: (track) => {
+      console.log('[playback] play requested:', track.id, `"${track.title}"`)
+      dispatch({ type: 'PLAY', track })
+    },
 
     playAll: (tracks, startIndex = 0) => {
       if (tracks.length === 0) return
