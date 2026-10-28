@@ -11,6 +11,17 @@ import type {
 } from '../core/domain/normalize'
 import type { ApiStake } from '../core/application/stakes'
 import type { PlaylistSummary } from '../core/application/playlists'
+import type { ApiUser } from '../core/application/bootstrap'
+import type { DeviceResponse } from '../core/application/devices'
+
+const DEFAULT_USER: ApiUser = {
+    id: 'user-1',
+    keycloak_id: 'kc-user-1',
+    email: 'rewind@example.com',
+    subscription_tier: 'free',
+    created_at: '2024-01-01T00:00:00Z',
+    updated_at: '2024-01-01T00:00:00Z',
+}
 
 export interface MockPlaylistRecord {
     summary: PlaylistSummary
@@ -27,6 +38,9 @@ export interface MockSeed {
     currentUserId?: string
     /** Track IDs the mock treats as owned. Omit → all tracks unlocked. */
     unlockedTrackIds?: string[]
+    /** Omit → default user. `null` ⇒ /users/me returns 403 (unprovisioned). */
+    user?: ApiUser | null
+    devices?: DeviceResponse[]
 }
 
 export interface MockState {
@@ -39,6 +53,8 @@ export interface MockState {
     currentUserId: string
     /** null = all unlocked. */
     unlockedTrackIds: string[] | null
+    user: ApiUser | null
+    devices: DeviceResponse[]
 }
 
 export type MockMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE'
@@ -86,11 +102,14 @@ export function createMockApiClient(seed: MockSeed = {}): MockApiClient {
         unlockedTrackIds: seed.unlockedTrackIds
             ? [...seed.unlockedTrackIds]
             : null,
+        user: seed.user === undefined ? DEFAULT_USER : seed.user,
+        devices: (seed.devices ?? []).map((d) => ({ ...d })),
     }
 
     const calls: RecordedCall[] = []
     const failures: FailureInjection[] = []
     let playlistCounter = 1
+    let deviceCounter = 1
 
     function takeFailure(method: MockMethod, path: string): FailureInjection | null {
         for (let i = 0; i < failures.length; i++) {
@@ -259,6 +278,15 @@ export function createMockApiClient(seed: MockSeed = {}): MockApiClient {
             return state.stakes as unknown as T
         }
 
+        if (path === '/users/me') {
+            if (!state.user) throw new ApiError(403, 'User not provisioned')
+            return state.user as unknown as T
+        }
+
+        if (path === '/devices/') {
+            return state.devices as unknown as T
+        }
+
         if (path === '/playback/signed-url') {
             const trackId = paramString(params, 'track_id')
             if (!trackId) throw new ApiError(400, 'track_id required')
@@ -301,6 +329,25 @@ export function createMockApiClient(seed: MockSeed = {}): MockApiClient {
             const track = findTrack(payload.track_id)
             p.trackIds.push(payload.track_id)
             return track as unknown as T
+        }
+
+        if (path === '/devices/register') {
+            const payload = body as {
+                device_type?: string
+                capabilities?: { audio?: boolean; hls?: boolean }
+            }
+            const device: DeviceResponse = {
+                id: `device-${deviceCounter++}`,
+                user_id: state.currentUserId,
+                device_type: payload.device_type ?? 'mobile',
+                capabilities: {
+                    audio: payload.capabilities?.audio ?? true,
+                    hls: payload.capabilities?.hls ?? false,
+                },
+                registered_at: new Date().toISOString(),
+            }
+            state.devices.push(device)
+            return device as unknown as T
         }
 
         throw new ApiError(404, `No mock handler for POST ${path}`)
@@ -430,6 +477,8 @@ export function createMockApiClient(seed: MockSeed = {}): MockApiClient {
                 unlockedTrackIds: state.unlockedTrackIds
                     ? [...state.unlockedTrackIds]
                     : null,
+                user: state.user ? { ...state.user } : null,
+                devices: state.devices.map((d) => ({ ...d })),
             }
         },
         getCalls(): RecordedCall[] {

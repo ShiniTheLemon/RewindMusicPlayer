@@ -8,8 +8,13 @@ import type { Track } from '../core/domain/entities'
 import { createMockApiClient } from '../adapters/mockApiClient'
 import { createExpoAudioEngine } from '../adapters/expoAudioEngine'
 import { createDeviceMusicSource } from '../adapters/deviceMusic'
+import { createKeycloakAuth, createDisabledAuth } from '../adapters/keycloakAuth'
+import { createMmkvKeyValueStore } from '../adapters/mmkvKeyValue'
+import { createMarketplaceGateway } from '../adapters/marketplaceHttp'
+import type { BootstrapDeps } from '../core/application/bootstrap'
 import { MOCK_SEED } from '../adapters/mockSeed'
 import { installPlaybackDeps } from '../features/playback/playbackStore'
+import { installAuthDeps } from '../features/auth/authStore'
 
 // Bundled placeholder injected into normalize(). If your scaffold puts assets
 // somewhere other than assets/, fix this path — the compiler will not
@@ -30,18 +35,36 @@ export function createServices(config: AppConfig): Services {
   }
   const favorites = createFavorites({ api, normalizeOpts })
 
+  const keyValue = createMmkvKeyValueStore()
+  const auth = config.keycloak
+    ? createKeycloakAuth(config.keycloak, keyValue)
+    : createDisabledAuth()
+  const bootstrapDeps: BootstrapDeps = {
+    auth,
+    api,
+    store: keyValue,
+    marketplace: createMarketplaceGateway(config.marketplaceUrl),
+    // §5.4: the RN client registers itself as a mobile device, audio-only.
+    deviceInfo: { deviceType: 'mobile', capabilities: { audio: true, hls: false } },
+  }
+
   const services: Services = {
     config,
     api,
     normalizeOpts,
     favorites,
     deviceMusic: createDeviceMusicSource(),
+    auth,
+    keyValue,
+    bootstrapDeps,
   }
 
   installPlaybackDeps({
     engine: createExpoAudioEngine(),
     resolveUrl: (track: Track) => resolvePlaybackUrl(services, track),
   })
+
+  installAuthDeps(bootstrapDeps)
 
   return services
 }

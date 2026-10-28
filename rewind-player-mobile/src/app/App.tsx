@@ -9,6 +9,7 @@ import { createQueryClient } from './queryClient'
 import { loadConfig } from './config'
 import { createServices } from './services'
 import { Navigation } from './navigation'
+import { AuthGate } from '../features/auth/AuthGate'
 import { PlayerModal } from '../features/playback/PlayerModal'
 import { BufferingOverlay } from '../features/playback/BufferingOverlay'
 import { PurchasePromptModal } from '../features/playback/PurchasePromptModal'
@@ -22,10 +23,12 @@ export default function App() {
         <QueryClientProvider client={queryClient}>
           <ServicesProvider services={services}>
             <StatusBar style="dark" />
-            <Navigation />
-            <PlayerModal />
-            <BufferingOverlay />
-            <PurchasePromptModal />
+            <AuthGate>
+              <Navigation />
+              <PlayerModal />
+              <BufferingOverlay />
+              <PurchasePromptModal />
+            </AuthGate>
           </ServicesProvider>
         </QueryClientProvider>
       </SafeAreaProvider>
