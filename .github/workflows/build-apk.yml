@@ -14,7 +14,7 @@ defaults:
 
 jobs:
   build:
-    name: Build Expo APK
+    name: Build Expo APKs
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -57,20 +57,52 @@ jobs:
       - name: Expo Prebuild
         run: npx expo prebuild --platform android --clean
 
-      - name: Build Android APK
+      - name: Build debug APK (dev)
         run: |
           cd android
           chmod +x gradlew
           ./gradlew assembleDebug -PreactNativeArchitectures=arm64-v8a
 
-      - name: Publish APK to releases page
+      - name: Build release APK (beta)
+        run: |
+          cd android
+          chmod +x gradlew
+          if [ -n "${{ secrets.RELEASE_KEYSTORE_BASE64 }}" ]; then
+            echo "${{ secrets.RELEASE_KEYSTORE_BASE64 }}" | base64 -d > "$RUNNER_TEMP/rewind.keystore"
+            ./gradlew assembleRelease -PreactNativeArchitectures=arm64-v8a \
+              -Pandroid.injected.signing.store.file="$RUNNER_TEMP/rewind.keystore" \
+              -Pandroid.injected.signing.store.password="${{ secrets.RELEASE_KEYSTORE_PASSWORD }}" \
+              -Pandroid.injected.signing.key.alias="${{ secrets.RELEASE_KEY_ALIAS }}" \
+              -Pandroid.injected.signing.key.password="${{ secrets.RELEASE_KEY_PASSWORD }}"
+          else
+            # Fallback: the runner's debug keystore. Works, but the signature
+            # is not guaranteed stable across runner-image updates — add the
+            # real keystore secrets before wide beta distribution.
+            ./gradlew assembleRelease -PreactNativeArchitectures=arm64-v8a \
+              -Pandroid.injected.signing.store.file="$HOME/.android/debug.keystore" \
+              -Pandroid.injected.signing.store.password=android \
+              -Pandroid.injected.signing.key.alias=androiddebugkey \
+              -Pandroid.injected.signing.key.password=android
+          fi
+
+      - name: Publish APKs to releases page
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          mkdir -p "$RUNNER_TEMP/dist"
+          cp android/app/build/outputs/apk/debug/*.apk "$RUNNER_TEMP/dist/rewind-debug.apk"
+          cp android/app/build/outputs/apk/release/*.apk "$RUNNER_TEMP/dist/rewind-beta.apk"
+
           gh release delete latest --yes --cleanup-tag || true
-          gh release create latest \
-            android/app/build/outputs/apk/debug/*.apk \
-            --title "Latest build" \
+          gh release create latest "$RUNNER_TEMP/dist/rewind-debug.apk" \
+            --title "Latest dev build" \
             --prerelease \
-            --notes "Automated build from $(git rev-parse --short HEAD)" \
+            --notes "Debug build from $(git rev-parse --short HEAD). Meant for development — expects the Expo dev server." \
+            --target main
+
+          gh release delete beta --yes --cleanup-tag || true
+          gh release create beta "$RUNNER_TEMP/dist/rewind-beta.apk" \
+            --title "Beta" \
+            --prerelease \
+            --notes "Release build from $(git rev-parse --short HEAD). Installs and runs standalone — no dev server needed." \
             --target main
