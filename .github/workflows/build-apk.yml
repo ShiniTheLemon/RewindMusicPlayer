@@ -33,8 +33,9 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
+      # No setup-android step: ubuntu-latest ships a preinstalled SDK with
+      # licenses accepted, and AGP auto-downloads missing platforms
+      # (android-37 here) during the Gradle build.
 
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
