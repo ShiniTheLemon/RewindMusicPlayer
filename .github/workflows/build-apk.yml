@@ -69,7 +69,7 @@ jobs:
         run: |
           gh release delete latest --yes --cleanup-tag || true
           gh release create latest \
-            rewind-player-mobile/android/app/build/outputs/apk/debug/*.apk \
+            android/app/build/outputs/apk/debug/*.apk \
             --title "Latest build" \
             --prerelease \
             --notes "Automated build from $(git rev-parse --short HEAD)" \
